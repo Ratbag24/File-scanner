@@ -10,7 +10,7 @@ from .models import HEURISTIC, Finding, Severity
 
 try:
     from oletools.olevba import VBA_Parser
-except ImportError:
+except Exception:  # optional library missing or broken: run without it
     VBA_Parser = None
 
 # Keywords in macro code that point to harmful behaviour.

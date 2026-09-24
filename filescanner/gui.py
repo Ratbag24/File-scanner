@@ -21,7 +21,7 @@ from .signatures import default_hash_db_path
 
 try:  # optional: lets you drag files from Explorer / Finder onto the window
     from tkinterdnd2 import DND_FILES, TkinterDnD
-except ImportError:
+except Exception:  # optional library missing or broken: run without it
     TkinterDnD = None
 
 VERDICT_COLOURS = {
@@ -49,8 +49,9 @@ def save_settings(settings: dict) -> None:
 
 
 class ScannerApp:
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, drag_and_drop: bool = False):
         self.root = root
+        self.drag_and_drop = drag_and_drop
         self.settings = load_settings()
         self.targets: list[str] = []
         self.results: dict[str, ScanResult] = {}
@@ -130,7 +131,7 @@ class ScannerApp:
         self.status = ttk.Label(bottom, text="Add files or folders, then press Scan.")
         self.status.pack(side="left", fill="x", expand=True)
 
-        if TkinterDnD is not None:
+        if self.drag_and_drop:
             self.root.drop_target_register(DND_FILES)
             self.root.dnd_bind("<<Drop>>", self._on_drop)
 
@@ -164,7 +165,7 @@ class ScannerApp:
 
     def _refresh_targets(self):
         if not self.targets:
-            hint = " (or drag them onto this window)" if TkinterDnD else ""
+            hint = " (or drag them onto this window)" if self.drag_and_drop else ""
             self.target_label.configure(text=f"Nothing selected yet{hint}.")
         else:
             shown = ", ".join(os.path.basename(p.rstrip("/\\")) or p for p in self.targets[:4])
@@ -396,8 +397,17 @@ class ScannerApp:
         ttk.Button(buttons, text="Cancel", command=win.destroy).pack(side="right", padx=6)
 
 
-def main() -> int:
-    root = TkinterDnD.Tk() if TkinterDnD is not None else tk.Tk()
-    ScannerApp(root)
+def main(paths: list[str] | None = None) -> int:
+    root = None
+    if TkinterDnD is not None:
+        try:
+            root = TkinterDnD.Tk()
+        except Exception:  # drag-and-drop library present but unusable
+            pass
+    if root is None:
+        root = tk.Tk()
+    app = ScannerApp(root, drag_and_drop=isinstance(root, TkinterDnD.Tk) if TkinterDnD else False)
+    if paths:
+        app._add(paths)
     root.mainloop()
     return 0

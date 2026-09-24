@@ -19,7 +19,7 @@ from .models import HACKTOOL, INFO, MALWARE, Finding, Severity
 
 try:
     import yara
-except ImportError:
+except Exception:  # optional library missing or broken: run without it
     yara = None
 
 
