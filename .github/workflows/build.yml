@@ -1,0 +1,66 @@
+name: Test and build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+          - os: ubuntu-latest
+            name: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r requirements-dev.txt
+      - name: Test
+        run: python -m pytest -q
+      - name: Build app
+        run: python build.py
+      - name: Smoke-test the built app
+        shell: bash
+        run: |
+          ./dist/filescanner-cli* engines
+          ./dist/filescanner-cli* scan README.md
+      - name: Package
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ matrix.name }}" = "windows" ]; then
+            7z a ../FileScanner-windows.zip FileScanner.exe filescanner-cli.exe
+          else
+            zip -r ../FileScanner-${{ matrix.name }}.zip .
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FileScanner-${{ matrix.name }}
+          path: FileScanner-${{ matrix.name }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: FileScanner-*.zip

@@ -1,0 +1,5 @@
+# All optional: the scanner runs without them, but each one adds checks.
+pefile>=2023.2.7        # deeper analysis of Windows programs
+yara-python>=4.3        # YARA pattern rules
+oletools>=0.60          # reads macros inside Office documents
+tkinterdnd2>=0.4        # drag-and-drop onto the window
