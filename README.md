@@ -44,7 +44,9 @@ with a paid certificate. Click **More info → Run anyway**.
 ### Optional extras
 
 - **ClamAV** – install from <https://www.clamav.net/downloads>, run `freshclam`
-  once to download signatures, and the app uses it automatically.
+  once to download signatures, and the app uses it automatically. If Settings
+  says ClamAV is "not found", press **Browse…** next to *ClamAV location* and
+  pick `clamscan.exe` from the folder ClamAV was installed to.
 - **VirusTotal** – get a free API key at <https://www.virustotal.com> and paste
   it into Settings (or set `VT_API_KEY`).
 

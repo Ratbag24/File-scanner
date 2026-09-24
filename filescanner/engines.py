@@ -30,20 +30,79 @@ def resource_dir() -> Path:
 
 # --------------------------------------------------------------------- ClamAV
 
-def find_clamscan() -> str | None:
-    for name in ("clamdscan", "clamscan"):
-        found = shutil.which(name)
+CLAMSCAN_EXE = "clamscan.exe" if os.name == "nt" else "clamscan"
+
+
+def _clamscan_in(folder: str | os.PathLike | None) -> str | None:
+    """Find clamscan in a folder or one level below it (e.g. an extracted zip)."""
+    if not folder:
+        return None
+    folder = Path(folder)
+    if folder.is_file():
+        return str(folder) if folder.name.lower().startswith("clamscan") else None
+    if not folder.is_dir():
+        return None
+    direct = folder / CLAMSCAN_EXE
+    if direct.is_file():
+        return str(direct)
+    try:
+        for child in sorted(folder.iterdir()):
+            if child.is_dir() and (child / CLAMSCAN_EXE).is_file():
+                return str(child / CLAMSCAN_EXE)
+    except OSError:
+        pass
+    return None
+
+
+def _registry_install_dirs() -> list[str]:
+    """Install folders of anything named ClamAV in Windows' list of installed programs."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    found = []
+    uninstall = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+            try:
+                root = winreg.OpenKey(hive, uninstall, 0, winreg.KEY_READ | view)
+            except OSError:
+                continue
+            with root:
+                for i in range(winreg.QueryInfoKey(root)[0]):
+                    try:
+                        with winreg.OpenKey(root, winreg.EnumKey(root, i)) as key:
+                            name = str(winreg.QueryValueEx(key, "DisplayName")[0])
+                            if "clamav" in name.lower():
+                                found.append(str(winreg.QueryValueEx(key, "InstallLocation")[0]))
+                    except OSError:
+                        continue
+    return found
+
+
+def find_clamscan(configured: str | None = None) -> str | None:
+    """Locate clamscan.
+
+    Only clamscan is used: clamdscan needs the separate clamd service running and
+    otherwise fails without reporting anything.
+    """
+    candidates = [configured, shutil.which("clamscan")]
+    for var in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)", "LOCALAPPDATA", "USERPROFILE"):
+        base = os.environ.get(var)
+        if base:
+            candidates += [os.path.join(base, "ClamAV"), os.path.join(base, "Programs", "ClamAV")]
+    candidates += [r"C:\Program Files\ClamAV", r"C:\Program Files (x86)\ClamAV", r"C:\ClamAV"]
+    candidates += _registry_install_dirs()
+    for candidate in candidates:
+        found = _clamscan_in(candidate)
         if found:
             return found
-    for guess in (r"C:\Program Files\ClamAV\clamscan.exe", r"C:\Program Files (x86)\ClamAV\clamscan.exe"):
-        if os.path.isfile(guess):
-            return guess
     return None
 
 
 class ClamAV:
-    def __init__(self, binary: str | None = None):
-        self.binary = binary or find_clamscan()
+    def __init__(self, configured: str | None = None):
+        self.binary = find_clamscan(configured)
 
     @property
     def available(self) -> bool:
@@ -59,6 +118,12 @@ class ClamAV:
         except (OSError, subprocess.TimeoutExpired) as exc:
             return [Finding("clamav", Severity.INFO, f"ClamAV could not scan this file: {exc}", INFO)]
         findings = []
+        # Exit code 2 means ClamAV itself failed (most often: no virus list yet).
+        if proc.returncode == 2 and " FOUND" not in proc.stdout:
+            problem = (proc.stderr.strip().splitlines() or ["unknown error"])[-1]
+            if "database" in proc.stderr.lower() or "cvd" in proc.stderr.lower():
+                problem = "it has no virus list yet. Run freshclam.exe to download one"
+            return [Finding("clamav", Severity.LOW, f"ClamAV couldn't check this file: {problem}", INFO)]
         for line in proc.stdout.splitlines():
             if line.endswith(" FOUND"):
                 name = line.rsplit(":", 1)[-1].replace(" FOUND", "").strip()
