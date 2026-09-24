@@ -10,7 +10,7 @@ from .models import INFO, Finding, Severity
 
 try:
     import pefile
-except ImportError:  # the scanner still works without it, just with fewer checks
+except Exception:  # optional library missing or broken: run without it
     pefile = None
 
 PACKER_SECTIONS = {

@@ -1,5 +1,6 @@
 import io
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -199,3 +200,23 @@ def test_verdict_rules():
     assert verdict_for([medium, Finding("y", Severity.MEDIUM, "n")]) == Verdict.SUSPICIOUS
     assert verdict_for([Finding("x", Severity.MEDIUM, "k", "hacktool")]) == Verdict.RISKY_TOOL
     assert verdict_for([Finding("x", Severity.CRITICAL, "v", "malware")]) == Verdict.DANGEROUS
+
+
+def test_starts_without_a_console(tmp_path):
+    """The windowed .exe has no stdout/stderr; importing the scanner must not crash.
+
+    (oletools' colour output used to crash here on Windows.)
+    """
+    import subprocess
+    import sys
+
+    marker = tmp_path / "ok.txt"
+    code = (
+        "import sys; sys.stdout = None; sys.stderr = None\n"
+        "from filescanner.__main__ import ensure_streams\n"
+        "assert ensure_streams() is True\n"
+        "import filescanner.scanner, filescanner.documents\n"
+        f"open({str(marker)!r}, 'w').write('ok')\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=str(Path(__file__).parent.parent))
+    assert marker.read_text() == "ok"
