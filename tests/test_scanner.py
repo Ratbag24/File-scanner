@@ -114,6 +114,16 @@ def test_keygen_name_is_risky_tool(scanner, tmp_path):
     assert result.verdict == Verdict.RISKY_TOOL
 
 
+def test_document_mentioning_cracks_is_clean(scanner, tmp_path):
+    text = b"Warning: never download a keygen or KMS activator, they often carry malware."
+    assert scan(scanner, tmp_path, "README.md", text).verdict == Verdict.CLEAN
+
+
+def test_program_with_keygen_strings_is_risky_tool(scanner, tmp_path):
+    result = scan(scanner, tmp_path, "tool.exe", b"MZ" + b"\0" * 100 + b"Keygen cracked by TEAM")
+    assert result.verdict == Verdict.RISKY_TOOL
+
+
 def test_pdf_with_auto_javascript(scanner, tmp_path):
     pdf = b"%PDF-1.7\n1 0 obj << /OpenAction 2 0 R >>\n2 0 obj << /S /JavaScript /JS (app.alert(1)) >>"
     result = scan(scanner, tmp_path, "invoice.pdf", pdf)

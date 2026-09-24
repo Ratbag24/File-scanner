@@ -130,7 +130,7 @@ def scan_eicar(data: bytes) -> list[Finding]:
     return []
 
 
-def scan_patterns(data: bytes, is_script: bool) -> list[Finding]:
+def scan_patterns(data: bytes, is_script: bool, is_program: bool = False) -> list[Finding]:
     findings: list[Finding] = []
     for pattern, severity, message in _SCRIPT_PATTERNS:
         if re.search(pattern, data):
@@ -140,6 +140,10 @@ def scan_patterns(data: bytes, is_script: bool) -> list[Finding]:
             if not is_script and severity == Severity.CRITICAL:
                 sev = Severity.HIGH
             findings.append(Finding("content", sev, message, HEURISTIC))
+    # Only code can be a crack or keygen; a document that merely mentions one
+    # (a README, a forum post) is not.
+    if not (is_script or is_program):
+        return findings
     for pattern, message in _HACKTOOL_PATTERNS:
         if re.search(pattern, data):
             findings.append(Finding("hacktool", Severity.MEDIUM, message, HACKTOOL))

@@ -143,7 +143,8 @@ class Scanner:
         if kind != "zip":
             findings.extend(scan_eicar(data))
             is_script = ext in SCRIPT_EXTS or kind == "script"
-            findings.extend(scan_patterns(data, is_script=is_script))
+            findings.extend(scan_patterns(data, is_script=is_script,
+                                          is_program=kind in ("exe", "elf", "macho")))
             if self.yara and self.yara.available:
                 findings.extend(self.yara.scan(data))
 
