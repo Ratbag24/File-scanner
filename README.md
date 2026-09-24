@@ -12,13 +12,14 @@ archives and `.torrent` files. It tells you whether each one is **Clean**,
 
 ## Download
 
-Every push builds the app for Windows, macOS and Linux on GitHub.
-Open the **Actions** tab, click the latest *Test and build* run, and download
-`FileScanner-windows` (or `-macos` / `-linux`) from the **Artifacts** section.
-Unzip it and double-click **FileScanner.exe**.
+Go to the **Releases** section on the right of the repository page (or
+<https://github.com/Ratbag24/File-scanner/releases/latest>) and download
+`FileScanner-windows.zip` (or `-macos` / `-linux`). Unzip it and double-click
+**FileScanner.exe**.
 
-To publish a proper download page, create a tag such as `v0.1.0`; the build
-then attaches the zips to a GitHub Release.
+Every update to `main` rebuilds the app and refreshes the release. To publish
+a new version instead of replacing the current one, change `__version__` in
+`filescanner/__init__.py` (for example to `0.2.0`).
 
 Windows may show "Windows protected your PC" because the app isn't signed
 with a paid certificate. Click **More info → Run anyway**.

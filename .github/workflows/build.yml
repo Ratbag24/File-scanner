@@ -53,14 +53,32 @@ jobs:
           name: FileScanner-${{ matrix.name }}
           path: FileScanner-${{ matrix.name }}.zip
 
+  # Every update to main publishes a permanent GitHub Release (artifacts on a
+  # run are deleted after 90 days; release files are kept). The release is
+  # named after __version__ in filescanner/__init__.py: bump it to start a new
+  # release, otherwise the files on the current one are replaced.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: version
+        run: echo "tag=v$(sed -n 's/^__version__ = \"\(.*\)\"/\1/p' filescanner/__init__.py)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: File Scanner ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.version.outputs.tag }}
+          body: |
+            Download the zip for your computer, unzip it and run **FileScanner**.
+
+            - **Windows:** FileScanner-windows.zip, then double-click FileScanner.exe. If Windows says "Windows protected your PC", click More info, then Run anyway.
+            - **macOS:** FileScanner-macos.zip
+            - **Linux:** FileScanner-linux.zip
           files: FileScanner-*.zip
+          overwrite_files: true
