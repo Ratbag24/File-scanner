@@ -1,0 +1,22 @@
+[project]
+name = "filescanner"
+version = "0.1.0"
+description = "Scan files, programs, documents and torrents for threats."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+full = ["pefile>=2023.2.7", "yara-python>=4.3", "oletools>=0.60", "tkinterdnd2>=0.4"]
+
+[project.scripts]
+filescanner = "filescanner.__main__:main"
+
+[tool.setuptools]
+packages = ["filescanner"]
+
+[tool.setuptools.package-data]
+filescanner = ["rules/*.yar"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
