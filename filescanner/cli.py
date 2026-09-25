@@ -24,7 +24,7 @@ def _colour(text: str, verdict: Verdict, enabled: bool) -> str:
 
 
 def cmd_scan(args) -> int:
-    scanner = Scanner(ScanOptions(use_clamav=not args.no_clamav, use_yara=not args.no_yara,
+    scanner = Scanner(ScanOptions(use_clamav=not args.no_clamav, clamav_path=args.clamav, use_yara=not args.no_yara,
                                   virustotal_key=args.vt_key, hash_db_path=args.hash_db))
     colour = sys.stdout.isatty() and not args.json
     results = []
@@ -96,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("-v", "--verbose", action="store_true", help="show informational notes too")
     scan.add_argument("-q", "--quiet", action="store_true", help="don't list clean files")
     scan.add_argument("--no-clamav", action="store_true", help="don't use ClamAV even if installed")
+    scan.add_argument("--clamav", metavar="PATH", help="clamscan program or ClamAV folder, if not found automatically")
     scan.add_argument("--no-yara", action="store_true", help="don't use YARA rules")
     scan.add_argument("--vt-key", help="VirusTotal API key (or set VT_API_KEY)")
     scan.add_argument("--hash-db", help="extra text file of known-bad SHA-256 hashes")

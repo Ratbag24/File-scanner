@@ -185,7 +185,8 @@ class ScannerApp:
         self.stop_btn.configure(state="normal")
         self.progress.start(12)
         options = ScanOptions(virustotal_key=self.settings.get("virustotal_key") or None,
-                              use_clamav=self.settings.get("use_clamav", True))
+                              use_clamav=self.settings.get("use_clamav", True),
+                              clamav_path=self.settings.get("clamav_path") or None)
         self.worker = threading.Thread(target=self._run_scan, args=(list(self.targets), options),
                                        daemon=True)
         self.worker.start()
@@ -364,11 +365,34 @@ class ScannerApp:
         clam_var = tk.BooleanVar(value=self.settings.get("use_clamav", True))
         ttk.Checkbutton(frame, text="Use ClamAV if it is installed", variable=clam_var).grid(
             row=3, column=0, sticky="w")
+        clam_path = tk.StringVar(value=self.settings.get("clamav_path", ""))
+        clam_row = ttk.Frame(frame)
+        clam_row.grid(row=4, column=0, sticky="we", pady=(4, 0))
+        ttk.Label(clam_row, text="ClamAV location:").pack(side="left")
+        ttk.Entry(clam_row, textvariable=clam_path, width=46).pack(side="left", padx=6, fill="x", expand=True)
 
-        status = Scanner(ScanOptions(virustotal_key=key_var.get() or None)).engine_status()
-        engines = "\n".join(f"{name}: {state}" for name, state in status.items())
-        ttk.Label(frame, text="Scanners\n" + engines, justify="left").grid(row=4, column=0, sticky="w",
-                                                                           pady=12)
+        status_label = ttk.Label(frame, justify="left")
+        status_label.grid(row=5, column=0, sticky="w", pady=12)
+
+        def refresh_status():
+            status = Scanner(ScanOptions(virustotal_key=key_var.get() or None, use_clamav=clam_var.get(),
+                                         clamav_path=clam_path.get().strip() or None)).engine_status()
+            status_label.configure(text="Scanners\n" + "\n".join(f"{n}: {v}" for n, v in status.items()))
+
+        def choose_clamav():
+            chosen = filedialog.askopenfilename(
+                parent=win, title="Find clamscan.exe (usually in C:\\Program Files\\ClamAV)",
+                filetypes=[("clamscan", "clamscan*"), ("All files", "*")])
+            if chosen:
+                clam_path.set(chosen)
+                refresh_status()
+
+        ttk.Button(clam_row, text="Browse…", command=choose_clamav).pack(side="left")
+        ttk.Label(frame, foreground="#555", wraplength=480, justify="left",
+                  text="Leave empty to find ClamAV automatically. If it says 'not found', press Browse "
+                       "and pick clamscan.exe from the folder ClamAV was installed to."
+                  ).grid(row=6, column=0, sticky="w")
+        refresh_status()
 
         def update_hashes():
             from .cli import cmd_update
@@ -384,6 +408,7 @@ class ScannerApp:
         def save():
             self.settings["virustotal_key"] = key_var.get().strip()
             self.settings["use_clamav"] = clam_var.get()
+            self.settings["clamav_path"] = clam_path.get().strip()
             try:
                 save_settings(self.settings)
             except OSError as exc:
@@ -391,7 +416,7 @@ class ScannerApp:
             win.destroy()
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=5, column=0, sticky="we")
+        buttons.grid(row=7, column=0, sticky="we", pady=(12, 0))
         ttk.Button(buttons, text="Update malware fingerprints", command=update_hashes).pack(side="left")
         ttk.Button(buttons, text="Save", command=save).pack(side="right")
         ttk.Button(buttons, text="Cancel", command=win.destroy).pack(side="right", padx=6)

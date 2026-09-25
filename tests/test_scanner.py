@@ -1,4 +1,5 @@
 import io
+import os
 import zipfile
 from pathlib import Path
 
@@ -220,3 +221,39 @@ def test_starts_without_a_console(tmp_path):
     )
     subprocess.run([sys.executable, "-c", code], check=True, cwd=str(Path(__file__).parent.parent))
     assert marker.read_text() == "ok"
+
+
+def test_clamscan_found_in_folder_and_subfolder(tmp_path):
+    from filescanner.engines import CLAMSCAN_EXE, find_clamscan
+
+    direct = tmp_path / "ClamAV"
+    direct.mkdir()
+    (direct / CLAMSCAN_EXE).write_bytes(b"")
+    assert find_clamscan(str(direct)) == str(direct / CLAMSCAN_EXE)
+
+    nested = tmp_path / "Downloads"
+    (nested / "clamav-1.5.4.win.x64").mkdir(parents=True)
+    (nested / "clamav-1.5.4.win.x64" / CLAMSCAN_EXE).write_bytes(b"")
+    assert find_clamscan(str(nested)).endswith(CLAMSCAN_EXE)
+    assert find_clamscan(str(direct / CLAMSCAN_EXE)) == str(direct / CLAMSCAN_EXE)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses a shell script as a stand-in for clamscan")
+@pytest.mark.parametrize("output, code, expected", [
+    ("{path}: Win.Test.EICAR_HDB-1 FOUND", 1, Verdict.DANGEROUS),
+    ("{path}: PUA.Win.Tool.Keygen FOUND", 1, Verdict.RISKY_TOOL),
+    ("", 2, Verdict.CLEAN),
+])
+def test_clamav_results(tmp_path, output, code, expected):
+    target = tmp_path / "file.bin"
+    target.write_bytes(b"data")
+    fake = tmp_path / "clamscan"
+    fake.write_text("#!/bin/sh\n"
+                    f"echo '{output.format(path=target)}'\n"
+                    "echo 'LibClamAV Error: cli_loaddbdir(): No supported database files found' >&2\n"
+                    f"exit {code}\n")
+    fake.chmod(0o755)
+    result = Scanner(ScanOptions(clamav_path=str(fake), use_yara=False)).scan_file(str(target))
+    assert result.verdict == expected
+    if code == 2:
+        assert "freshclam" in messages(result)

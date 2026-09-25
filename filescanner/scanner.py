@@ -32,6 +32,7 @@ OFFICE_EXTS = {".doc", ".docx", ".docm", ".dot", ".dotm", ".xls", ".xlsx", ".xls
 @dataclass
 class ScanOptions:
     use_clamav: bool = True
+    clamav_path: str | None = None
     use_yara: bool = True
     virustotal_key: str | None = None
     hash_db_path: str | None = None
@@ -45,7 +46,7 @@ class Scanner:
 
     def __post_init__(self):
         self.hash_db = HashDatabase.load(self.options.hash_db_path)
-        self.clamav = ClamAV() if self.options.use_clamav else None
+        self.clamav = ClamAV(self.options.clamav_path) if self.options.use_clamav else None
         self.yara = YaraRules(self.options.extra_rules_dir) if self.options.use_yara else None
 
     def engine_status(self) -> dict[str, str]:
@@ -55,7 +56,8 @@ class Scanner:
         return {
             "Built-in checks": "on",
             "Known-malware hash list": f"{len(self.hash_db)} fingerprints" if len(self.hash_db) else "empty",
-            "ClamAV": "on" if self.clamav and self.clamav.available else "not installed",
+            "ClamAV": (f"on ({self.clamav.binary})" if self.clamav and self.clamav.available
+                       else "off" if not self.options.use_clamav else "not found"),
             "YARA rules": ("on" if self.yara and self.yara.available
                            else (f"error: {self.yara.error}" if self.yara and self.yara.error else "off")),
             "Program analysis (pefile)": "on" if pefile else "basic",
